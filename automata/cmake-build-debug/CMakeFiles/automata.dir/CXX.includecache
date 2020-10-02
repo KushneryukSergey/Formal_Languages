@@ -9,4 +9,20 @@
 /home/skushneryuk/study/Formal_Languages/automata/main.cpp
 iostream
 -
+utility
+-
+vector
+-
+algorithm
+-
+string
+-
+set
+-
+map
+-
+queue
+-
+exception
+-
 
