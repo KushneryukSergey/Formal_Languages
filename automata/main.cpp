@@ -48,6 +48,7 @@ public:
     [[nodiscard]] const string& get_name() const;
     [[nodiscard]] const bool& get_is_start() const;
     [[nodiscard]] const bool& get_is_accept() const;
+    void make_accept();
 
     void operator+=(const State&);
 };
@@ -70,12 +71,16 @@ void State::operator+=(const State& other) {
     is_accept |= other.is_accept;
 }
 
+void State::make_accept() {
+    is_accept = true;
+}
+
 
 class _MinState{
     string achievable;
 public:
     _MinState() = delete;
-    _MinState(const vector<int>& ach) {
+    explicit _MinState(const vector<int>& ach) {
         for(const int& i: ach){
             achievable += char(i);
         }
@@ -184,7 +189,6 @@ public:
     friend std::ostream& operator<<(std::ostream & stream, const Automaton& automaton);
     void tex_graph_print(std::ostream & stream);
     void tex_transition_table_print(std::ostream & stream);
-    void tex_minimize_transition_table_print(std::ostream & stream);
     void make_one_letter();
 
 private:
@@ -209,7 +213,7 @@ std::ostream& operator<<(std::ostream & stream, const Automaton& automaton) {
     stream << "States: " << std::endl;
     for(size_t i = 0; i < automaton.state.size(); ++i){
         auto st = automaton.state[i];
-        stream << i << ' ' << st.name << (st.is_start ? " start": "") << (st.is_accept ? " accept ": "") << std::endl;
+        stream << i << ' ' << st.name << (st.get_is_start() ? " start": "") << (st.get_is_accept() ? " accept ": "") << std::endl;
     }
     stream << std::endl << "Transitions: " << std::endl;
     for(size_t i = 0; i < automaton.transition.size(); ++i){
@@ -368,7 +372,9 @@ void Automaton::_push_epsilon_transitions_in_state(const int& curr_state, set<Tr
                 break;
             }
             reachable.push(trans.get_finish());
-            state[curr_state].is_accept |= state[trans.get_finish()].is_accept;
+            if(state[trans.get_finish()].get_is_accept()){
+                state[curr_state].make_accept();
+            }
         }
     }
     auto iter = new_transitions.begin();
