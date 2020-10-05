@@ -141,7 +141,10 @@ public:
     Automaton() = delete;
     Automaton(const vector<State>&, const vector<set<Transition>>&);
     void determinize();
+    //void minimize();
     friend std::ostream& operator<<(std::ostream & stream, const Automaton& automaton);
+    void tex_graph_print(std::ostream & stream);
+    void tex_transition_table_print(std::ostream & stream);
 
 private:
     void _make_leq_one_letter();
@@ -152,22 +155,22 @@ private:
 };
 
 std::ostream& operator<<(std::ostream & stream, const Automaton& automaton) {
-    std::cout << "AUTOMATON" << std::endl;
-    std::cout << "Alphabet: " << std::endl;
-    std::cout << "| ";
+    stream << "AUTOMATON" << std::endl;
+    stream << "Alphabet: " << std::endl;
+    stream << "| ";
     for (const auto& letter: automaton.alphabet){ //позже выделю отдельно функции вывода алфавита, состояний и переходов
-        std::cout << letter << " | ";
+        stream << letter << " | ";
     }
-    std::cout << std::endl;
-    std::cout << "States: " << std::endl;
+    stream << std::endl;
+    stream << "States: " << std::endl;
     for(size_t i = 0; i < automaton.state.size(); ++i){
         auto st = automaton.state[i];
-        std::cout << i << ' ' << st.name << (st.is_start ? " start": "") << (st.is_accept ? " accept ": "") << std::endl;
+        stream << i << ' ' << st.name << (st.is_start ? " start": "") << (st.is_accept ? " accept ": "") << std::endl;
     }
-    std::cout << std::endl << "Transitions: " << std::endl;
+    stream << std::endl << "Transitions: " << std::endl;
     for(size_t i = 0; i < automaton.transition.size(); ++i){
         for(const auto& tr: automaton.transition[i]){
-            std::cout << i << " -> " << tr.finish << ' ' << (tr.expr.empty() ? "#eps#" : tr.expr) << std::endl;
+            stream << i << " -> " << tr.finish << ' ' << (tr.expr.empty() ? "#eps#" : tr.expr) << std::endl;
         }
     }
 
@@ -297,11 +300,8 @@ void Automaton::determinize() {
         throw too_many_states_exception();
     }
     _make_leq_one_letter();
-    std::cout << *this << std::endl;
     _remove_epsilon_transitions();
-    std::cout << *this << std::endl;
     _classify();
-    std::cout << *this << std::endl;
 }
 
 void Automaton::_push_epsilon_transitions_in_state(const int& curr_state, set<Transition>& new_transitions) {
@@ -339,12 +339,75 @@ string Automaton::_build_name_by_mask(const unsigned long long& mask) {
             names.push_back(state[i].get_name());
         }
     }
-    string new_name = "{";
+    string new_name = "";
     for(size_t i = 0; i + 1 < names.size(); ++i){
         new_name += names[i] + ", ";
     }
-    new_name += names.back() + "}";
+    new_name += names.back();
     return new_name;
+}
+
+void Automaton::tex_graph_print(std::ostream & stream) {
+    stream << "LaTeX code for graph of NFA/DFA \n"
+              "ATTENTION: if number of state is more than 7, graph will be incorrectly displayed \n\n";
+    stream << "\\begin{tikzpicture}[shorten >=1pt,node distance=2cm,on grid,auto]\n"
+              "    \\tikzstyle{every state}=[fill={rgb:black,1;white,10}]" << std::endl;
+    for(size_t i = 0; i < state.size(); ++i){
+        auto st = state[i];
+        stream << "    \\node[state" << (st.get_is_start() ? ",initial": "") << (st.get_is_accept() ? ",accepting": "") << "] ";
+        stream << "(q_" << i << ")" << (i ? "[right of=q_" + std::to_string(i - 1) +" ]" : "") << " {$" <<
+        st.get_name() << " $};" << std::endl;
+    }
+    stream << std::endl << "    \\path[->]" << std::endl;
+    for(size_t i = 0; i < transition.size(); ++i){
+        for(const auto& tr: transition[i]){
+            stream << "    (q_" << i << ") edge [" << (tr.finish == i ? "loop above" : "bend right" ) <<
+            "] node {$" + (tr.expr.empty() ? "\varepsilon" : tr.expr) + "$} (" <<
+            (tr.finish != i ? "q_" + std::to_string(tr.finish) : "" ) << ")";
+            if(i + 1 == transition.size()){
+                stream << ";\n";
+            } else {
+                stream << std::endl;
+            }
+        }
+    }
+    stream << "\\end{tikzpicture}\n\n";
+}
+
+void Automaton::tex_transition_table_print(std::ostream & stream) {
+    vector<string> letters;
+    stream << "LaTeX code for transition table in NFA/DFA \n \n";
+    stream << "\\begin{tabular}{ |c|c|c| } \n"
+              " \\hline\n";
+    stream << "Verticle" << " & ";
+    for(const auto& i : alphabet){
+        letters.push_back(i);
+    }
+    for(size_t i = 0; i + 1 < letters.size(); ++i){
+        stream << letters[i] << " & ";
+    }
+    stream << letters.back() << " \\\\ \n \\hline \n";
+    int cnt = 0;
+    for(size_t j = 0; j < transition.size(); ++j){
+        const auto& st = transition[j];
+        stream << state[j].get_name() << " & ";
+        for(size_t i = 0; i + 1 < letters.size(); ++i){
+            auto tr = st.lower_bound(Transition(letters[i], -1));
+            if(tr->expr == letters[i]){
+                stream << state[tr->finish].get_name() << " & ";
+            } else {
+                stream << " - & ";
+            }
+        }
+        auto tr = st.rbegin();
+        if(tr->expr == letters.back()){
+            stream << state[tr->finish].get_name() << " \\\\ \n";
+        } else {
+            stream << " - \\\\ \n";
+        }
+        ++cnt;
+    }
+    stream << " \\hline\n \\end{tabular} \n";
 }
 
 Automaton input_automata(){
@@ -367,12 +430,16 @@ Automaton input_automata(){
     std::cout << "\n Input number of transitions: \n";
     std::cin >> trans_number;
     std::cout << "\n Input transitions in format \"[number of first state] [number of second state] [word]\"\n"
+                 "If you want word to be empty, print #\n"
                  "(numbers were written when you were inputting states' information): \n";
     vector<set<Transition>> tr(size);
     int u, v;
     string word;
     for(size_t i = 0; i < trans_number; ++i){
         std::cin >> u >> v >> word;
+        if (word == "#"){
+            word = "";
+        }
         tr[u].insert(Transition(word, v));
     }
     Automaton automaton(st, tr);
@@ -382,8 +449,13 @@ Automaton input_automata(){
 
 void determinize_automata(){
     Automaton automaton = input_automata();
+    automaton.tex_transition_table_print(std::cout);
+    automaton.tex_graph_print(std::cout);
     automaton.determinize();
     std::cout << automaton << std::endl;
+    std::cout << "\n\n\n";
+    automaton.tex_transition_table_print(std::cout);
+    automaton.tex_graph_print(std::cout);
 }
 
 void test1(){
@@ -413,7 +485,6 @@ void test2(){
     A.determinize();
     std::cout << A;
 }
-
 
 int main() {
     determinize_automata();
