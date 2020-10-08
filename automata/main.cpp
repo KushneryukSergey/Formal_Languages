@@ -7,7 +7,6 @@
 #include <map>
 #include <queue>
 #include <exception>
-#include <array>
 
 
 using std::vector;
@@ -80,15 +79,20 @@ class _MinState{
     string achievable;
 public:
     _MinState() = delete;
-    explicit _MinState(const vector<int>& ach) {
-        for(const int& i: ach){
-            achievable += char(i);
-        }
-    };
-    bool operator< (const _MinState& other) const {
-        return achievable < other.achievable;
-    }
+    explicit _MinState(const vector<int>&);
+
+    bool operator< (const _MinState&) const;
 };
+
+_MinState::_MinState(const vector<int>& ach) {
+    for(const int& i: ach){
+        achievable += char(i);
+    }
+}
+
+bool _MinState::operator< (const _MinState& other) const {
+    return achievable < other.achievable;
+}
 
 
 
@@ -143,12 +147,12 @@ const bool& _DetState::get_is_accept() const {
 
 class Transition{
     string expr;
-    int finish;
+    size_t finish;
 public:
     Transition() = delete;
-    Transition(string expr, const int& finish): expr(std::move(expr)), finish(finish) {};
+    Transition(string expr, const size_t& finish): expr(std::move(expr)), finish(finish) {};
     [[nodiscard]] const string& get_expr() const;
-    [[nodiscard]] const int& get_finish() const;
+    [[nodiscard]] const size_t& get_finish() const;
 
     bool operator<(const Transition &) const;
 };
@@ -164,15 +168,18 @@ bool Transition::operator<(const Transition& other) const {
 const string& Transition::get_expr() const {
     return expr;
 }
-const int& Transition::get_finish() const {
+
+const size_t& Transition::get_finish() const {
     return finish;
 }
 
 class Automaton{
-    vector<State> state;
-    vector<set<Transition>> transition;
+    vector<State> states;
+    vector<set<Transition>> transitions;
     set<string> alphabet;
-    int start_state = -1;
+    size_t state_number;
+    size_t transition_number;
+    size_t start_state = UINT32_MAX;
     bool is_one_letter = false;
     bool is_DFA = false;
     bool is_complete = false;
@@ -183,61 +190,105 @@ class Automaton{
 public:
     Automaton() = delete;
     Automaton(const vector<State>&, const vector<set<Transition>>&);
+
+    friend std::ostream& operator<<(std::ostream & stream, const Automaton& automaton);
+
     void determinize();
+    void output_alphabet(std::ostream&) const ;
+    void output_states(std::ostream&) const ;
+    void output_transitions(std::ostream&) const ;
     void minimize(bool print_log=false, std::ostream& stream=std::cout);
     void complete();
-    friend std::ostream& operator<<(std::ostream & stream, const Automaton& automaton);
-    void tex_graph_print(std::ostream & stream);
-    void tex_transition_table_print(std::ostream & stream);
+    void tex_graph_print(std::ostream & stream) const ;
+    void tex_transition_table_print(std::ostream & stream) const ;
     void make_one_letter();
+    size_t get_state_number();
+    size_t get_transition_number();
 
 private:
-    void _make_leq_one_letter();
-    void _add_transition(const int&, const int&, const string&);
+    void _add_transition(const size_t&, const size_t&, const string&);
+    void _delete_transition(const size_t&, const Transition&);
+    void _add_state(const string&, const bool&, const bool&);
     bool _is_exist_transition_by_letter(const int &start, const string &expr);
-    void _remove_epsilon_transitions();
-    void _push_epsilon_transitions_in_state(const int &curr_state, set<Transition> &new_transitions);
-    void _classify();
-    string _build_name_by_mask(const unsigned long long&);
 
+    void _make_leq_one_letter();
+    void _remove_epsilon_transitions();
+    void _push_epsilon_transitions_in_state(const size_t&, const vector<set<Transition>>&);
+    void _classify();
+    void _recalc_state_number();
+    void _recalc_transition_number();
+
+    string _build_name_by_mask(const unsigned long long& mask, const vector<State>& old_states, const string& separator = "");
 };
 
-std::ostream& operator<<(std::ostream & stream, const Automaton& automaton) {
-    stream << "AUTOMATON" << std::endl;
+void Automaton::_recalc_state_number(){
+    state_number = states.size();
+}
+
+void Automaton::_recalc_transition_number(){
+    transition_number = 0;
+    for(const auto& current_state_transitions: transitions){
+        transition_number += current_state_transitions.size();
+    }
+}
+
+
+void Automaton::output_alphabet(std::ostream& stream) const {
     stream << "Alphabet: " << std::endl;
     stream << "| ";
-    for (const auto& letter: automaton.alphabet){ //позже выделю отдельно функции вывода алфавита, состояний и переходов
+    for (const auto& letter: alphabet){
         stream << letter << " | ";
     }
-    stream << std::endl;
+    stream << '\n';
+}
+
+void Automaton::output_states(std::ostream& stream) const {
     stream << "States: " << std::endl;
-    for(size_t i = 0; i < automaton.state.size(); ++i){
-        auto st = automaton.state[i];
-        stream << i << ' ' << st.name << (st.get_is_start() ? " start": "") << (st.get_is_accept() ? " accept ": "") << std::endl;
+    for(size_t i = 0; i < states.size(); ++i){
+        auto st = states[i];
+        stream << i << ' ' << st.name << (st.get_is_start() ? " start": "")
+                << (st.get_is_accept() ? " accept ": "") << std::endl;
     }
+    stream << '\n';
+}
+
+void Automaton::output_transitions(std::ostream& stream) const {
     stream << std::endl << "Transitions: " << std::endl;
-    for(size_t i = 0; i < automaton.transition.size(); ++i){
-        for(const auto& tr: automaton.transition[i]){
-            stream << i << " -> " << tr.get_finish() << ' ' << (tr.get_expr().empty() ? "#eps#" : tr.get_expr()) << std::endl;
+    for(size_t i = 0; i < transitions.size(); ++i){
+        for(const auto& transition: transitions[i]){
+            stream << i << " -> " << transition.get_finish() << ' '
+                    << (transition.get_expr().empty() ? "#eps#" : transition.get_expr()) << std::endl;
         }
     }
+    stream << '\n';
+}
+
+
+std::ostream& operator<<(std::ostream & stream, const Automaton& automaton) {
+    stream << "AUTOMATON\n";
+
+    automaton.output_alphabet(stream);
+    automaton.output_states(stream);
+    automaton.output_transitions(stream);
 
     return stream;
 }
 
-Automaton::Automaton(const vector<State>& state, const vector<set<Transition>>& transition):
-        state(state),
-        transition(transition) {
-        for(const auto& curr_state_trans: transition){
-            for(const auto& curr_trans: curr_state_trans){
-                for(size_t i = 0; i < curr_trans.get_expr().size(); ++i){
-                    alphabet.insert(curr_trans.get_expr().substr(i, 1));
+Automaton::Automaton(const vector<State>& states, const vector<set<Transition>>& transitions):
+        states(states),
+        transitions(transitions),
+        state_number(states.size()),
+        transition_number(transitions.size()){
+        for(const auto& current_state_transitions: transitions){
+            for(const auto& current_transition: current_state_transitions){
+                for(size_t i = 0; i < current_transition.get_expr().size(); ++i){
+                    alphabet.insert(current_transition.get_expr().substr(i, 1));
                 }
             }
         }
-        for(size_t i = 0; i < state.size(); ++i){
-            if(state[i].get_is_start()){
-                if(start_state == -1){
+        for(size_t i = 0; i < states.size(); ++i){
+            if(states[i].get_is_start()){
+                if(start_state == UINT32_MAX){
                     start_state = i;
                 } else {
                     throw too_many_start_states_exception();
@@ -247,28 +298,27 @@ Automaton::Automaton(const vector<State>& state, const vector<set<Transition>>& 
     }
 
 void Automaton::_make_leq_one_letter() {
-    auto original_state_number = state.size();
-    for(size_t curr_state = 0; curr_state < original_state_number; ++curr_state){
-        queue<Transition> long_trans;
-        for(const auto& trans: transition[curr_state]){
-            if(trans.get_expr().size() > 1){
-                long_trans.push(trans);
+    auto original_state_number = states.size();
+    for(size_t current_state = 0; current_state < original_state_number; ++current_state){
+        queue<Transition> long_expr_transitions;
+        for(const auto& current_state_transition: transitions[current_state]){
+            if(current_state_transition.get_expr().size() > 1){
+                long_expr_transitions.push(current_state_transition);
             }
         }
-        while(!long_trans.empty()){
-            Transition tr = long_trans.front();
-            long_trans.pop();
-            transition[curr_state].erase(tr);
-            size_t last = curr_state;
-            for(size_t i = 0; i < tr.get_expr().size(); ++i){
-                size_t new_state = state.size();
-                if(i + 1 == tr.get_expr().size()){
-                    new_state = tr.get_finish();
+        while(!long_expr_transitions.empty()){
+            Transition current_transition = long_expr_transitions.front();
+            long_expr_transitions.pop();
+            _delete_transition(current_state, current_transition);
+            size_t last = current_state;
+            for(size_t i = 0; i < current_transition.get_expr().size(); ++i){
+                size_t new_state = states.size();
+                if(i + 1 == current_transition.get_expr().size()){
+                    new_state = current_transition.get_finish();
                 } else {
-                    state.emplace_back(std::to_string(new_state), false, false);
-                    transition.emplace_back(set<Transition>());
+                    _add_state(std::to_string(new_state), false, false);
                 }
-                transition[last].insert(Transition(tr.get_expr().substr(i, 1), new_state));
+                _add_transition(last, new_state, current_transition.get_expr().substr(i, 1));
                 last = new_state;
             }
         }
@@ -276,75 +326,84 @@ void Automaton::_make_leq_one_letter() {
 }
 
 void Automaton::_remove_epsilon_transitions() {
-    vector<set<Transition>> new_transitions(state.size());
-    for(size_t curr_state = 0; curr_state < transition.size(); ++curr_state){
-        _push_epsilon_transitions_in_state(curr_state, new_transitions[curr_state]);
+    vector<set<Transition>> old_transitions(states.size());
+    transition_number = 0;
+    swap(old_transitions, transitions);
+    for(size_t current_state = 0; current_state < transitions.size(); ++current_state){
+        _push_epsilon_transitions_in_state(current_state, old_transitions);
     }
-    transition = new_transitions;
+    for(const auto& current_state_transitions: transitions){
+        transition_number += current_state_transitions.size();
+    }
 }
 
 void Automaton::_classify() {
-    vector<map<string, _DetState>> old_transition(transition.size());
+    vector<map<string, _DetState>> old_transition_packs_by_letter(transitions.size());
     map<_DetState, int> renumeration;
-    int cnt = 2;
-    vector<set<Transition>> new_transition;
-    vector<State> new_state;
+    vector<set<Transition>> old_transitions;
+    vector<State> old_states;
 
-    vector<_DetState> old_states;
-    for(size_t i = 0; i < state.size(); ++i){
-        old_states.emplace_back(1u<<i, state[i].get_is_start(), state[i].get_is_accept());
+    vector<_DetState> old_states_masks;
+    old_states_masks.reserve(states.size());
+    for(size_t i = 0; i < states.size(); ++i){
+        old_states_masks.emplace_back(1u << i, states[i].get_is_start(), states[i].get_is_accept());
     }
 
-    for(size_t i = 0; i < transition.size(); ++i){
-        for(const auto& trans: transition[i]){
-            old_transition[i][trans.get_expr()] |= old_states[trans.get_finish()];
+    for(size_t i = 0; i < transitions.size(); ++i){
+        for(const auto& current_transition: transitions[i]){
+            old_transition_packs_by_letter[i][current_transition.get_expr()] |= old_states_masks[current_transition.get_finish()];
         }
     }
 
     queue<_DetState> pack_states;
     map<_DetState, bool> used;
-    pack_states.push(_DetState(1 << start_state, true, state[start_state].get_is_accept()));
-    renumeration[_DetState(1 << start_state, true, false)] = 1;
+    size_t new_state_number = 1;
+    _DetState new_start_state(1u << start_state, true, states[start_state].get_is_accept());
+    pack_states.push(_DetState(new_start_state));
+    renumeration[new_start_state] = new_state_number;
+    ++new_state_number;
 
-    new_state.emplace_back(_build_name_by_mask(1u<<start_state), true, state[start_state].get_is_accept());
-    new_transition.emplace_back();
+    swap(old_states, states);
+    state_number = 0;
+    swap(old_transitions, transitions);
+    transition_number = 0;
+
+    _add_state(_build_name_by_mask(1u << start_state, old_states), true, old_states[start_state].get_is_accept());
 
     while(!pack_states.empty()){
-        auto st = pack_states.front();
+        auto current_state = pack_states.front();
         pack_states.pop();
-        unsigned long long curr_mask;
-        if(!used[st]){
-            used[st] = true;
+        unsigned long long current_mask;
+        if(!used[current_state]){
+            used[current_state] = true;
             for(const string& letter: alphabet){
-                _DetState curr_state_pack; // все достижимые состояния по данному символу
-                curr_mask = st.get_mask();
-                for(size_t i = 0; 1u<<i <= curr_mask; ++i) {
-                    if(1u<<i & curr_mask){
-                        curr_state_pack |= old_transition[i][letter];
+                _DetState current_state_pack; // все достижимые состояния по данному символу
+                current_mask = current_state.get_mask();
+                for(size_t i = 0; 1u<<i <= current_mask; ++i) {
+                    if(1u<<i & current_mask){
+                        current_state_pack |= old_transition_packs_by_letter[i][letter];
                     }
                 }
-                if(curr_state_pack.get_mask()){
-                    if(renumeration[curr_state_pack] == 0){
-                        renumeration[curr_state_pack] = cnt;
-                        ++cnt;
-                        new_state.emplace_back(_build_name_by_mask(curr_state_pack.get_mask()),
-                                               curr_state_pack.get_is_start(),
-                                               curr_state_pack.get_is_accept());
-                        new_transition.emplace_back();
+                if(current_state_pack.get_mask()){
+                    if(renumeration[current_state_pack] == 0){
+                        renumeration[current_state_pack] = new_state_number;
+                        ++new_state_number;
+                        _add_state(_build_name_by_mask(current_state_pack.get_mask(), old_states),
+                                                current_state_pack.get_is_start(),
+                                                current_state_pack.get_is_accept());
                     }
-                    new_transition[renumeration[st] - 1].insert(Transition(letter, renumeration[curr_state_pack] - 1));
-                    pack_states.push(curr_state_pack);
+                    _add_transition(renumeration[current_state] - 1, renumeration[current_state_pack] - 1, letter);
+                    pack_states.push(current_state_pack);
                 }
             }
         }
     }
-
-    transition = new_transition;
-    state = new_state;
 }
 
+
+
 void Automaton::determinize() {
-    if(state.size() > MAX_AUTOMATA_SIZE){
+    if(states.size() > MAX_AUTOMATA_SIZE){
         throw too_many_states_exception();
     }
     if(is_DFA){
@@ -355,10 +414,10 @@ void Automaton::determinize() {
     is_DFA = true;
 }
 
-void Automaton::_push_epsilon_transitions_in_state(const int& curr_state, set<Transition>& new_transitions) {
-    vector<bool> used(state.size(), false);
+void Automaton::_push_epsilon_transitions_in_state(const size_t& current_state, const vector<set<Transition>>& old_transitions) {
+    vector<bool> used(states.size(), false);
     queue<int> reachable;
-    reachable.push(curr_state);
+    reachable.push(current_state);
     while(!reachable.empty()){
         int s = reachable.front();
         reachable.pop();
@@ -366,69 +425,68 @@ void Automaton::_push_epsilon_transitions_in_state(const int& curr_state, set<Tr
             continue;
         }
         used[s] = true;
-        new_transitions.insert(transition[s].begin(), transition[s].end());
-        for(const auto& trans: transition[s]){
-            if(!trans.get_expr().empty()){
+        transitions[current_state].insert(old_transitions[s].begin(), old_transitions[s].end());
+        for(const auto& current_transition: old_transitions[s]){
+            if(!current_transition.get_expr().empty()){
                 break;
             }
-            reachable.push(trans.get_finish());
-            if(state[trans.get_finish()].get_is_accept()){
-                state[curr_state].make_accept();
+            reachable.push(current_transition.get_finish());
+            if(states[current_transition.get_finish()].get_is_accept()){
+                states[current_state].make_accept();
             }
         }
     }
-    auto iter = new_transitions.begin();
-    while(iter != new_transitions.end() && iter->get_expr().empty()){
+    auto iter = transitions[current_state].begin();
+    while(iter != transitions[current_state].end() && iter->get_expr().empty()){
         auto copy_iter = iter;
         ++iter;
-        new_transitions.erase(copy_iter);
+        transitions[current_state].erase(copy_iter);
     }
 }
 
-string Automaton::_build_name_by_mask(const unsigned long long& mask) {
+string Automaton::_build_name_by_mask(const unsigned long long& mask, const vector<State>& old_states, const string& separator) {
     vector<string> names;
     for(size_t i = 0; 1u<<i <= mask; ++i){
         if(1u<<i & mask){
-            names.push_back(state[i].get_name());
+            names.push_back(old_states[i].get_name());
         }
     }
     string new_name;
     for(size_t i = 0; i + 1 < names.size(); ++i){
-        //new_name += names[i] + ", ";
-        new_name += names[i];
+        new_name += names[i] + separator;
     }
     new_name += names.back();
     return new_name;
 }
 
-void Automaton::tex_graph_print(std::ostream & stream) {
+void Automaton::tex_graph_print(std::ostream & stream) const {
     stream << "LaTeX code for graph of NFA/DFA \n"
               "ATTENTION: if number of state is more than 7, graph will be incorrectly displayed \n\n";
     stream << "\\begin{tikzpicture}[shorten >=1pt,node distance=2cm,on grid,auto]\n"
-              "    \\tikzstyle{every state}=[fill={rgb:black,1;white,10}]" << std::endl;
-    for(size_t i = 0; i < state.size(); ++i){
-        auto st = state[i];
+              "    \\tikzstyle{every state}=[fill={rgb:black,1;white,10}]\n";
+    for(size_t i = 0; i < states.size(); ++i){
+        auto st = states[i];
         stream << "    \\node[state" << (st.get_is_start() ? ",initial": "") << (st.get_is_accept() ? ",accepting": "") << "] ";
         stream << "(q_" << i << ")" << (i ? "[right of=q_" + std::to_string(i - 1) +" ]" : "") << " {$" <<
-        st.get_name() << "$};" << std::endl;
+        st.get_name() << "$};\n";
     }
-    stream << std::endl << "    \\path[->]" << std::endl;
-    for(size_t i = 0; i < transition.size(); ++i){
-        for(const auto& tr: transition[i]){
-            stream << "    (q_" << i << ") edge [" << (tr.get_finish() == i ? "loop above" : "bend right" ) <<
-            "] node {$" + (tr.get_expr().empty() ? "\\varepsilon" : tr.get_expr()) + "$} (" <<
-            (tr.get_finish() != i ? "q_" + std::to_string(tr.get_finish()) : "" ) << ")";
-            if(i + 1 == transition.size()){
+    stream << "\n    \\path[->]\n";
+    for(size_t i = 0; i < transitions.size(); ++i){
+        for(const auto& transition: transitions[i]){
+            stream << "    (q_" << i << ") edge [" << (transition.get_finish() == i ? "loop above" : "bend right" ) <<
+            "] node {$" + (transition.get_expr().empty() ? "\\varepsilon" : transition.get_expr()) + "$} (" <<
+            (transition.get_finish() != i ? "q_" + std::to_string(transition.get_finish()) : "" ) << ")";
+            if(i + 1 == transitions.size()){
                 stream << ";\n";
             } else {
-                stream << std::endl;
+                stream << "\n";
             }
         }
     }
     stream << "\\end{tikzpicture}\n\n";
 }
 
-void Automaton::tex_transition_table_print(std::ostream & stream) {
+void Automaton::tex_transition_table_print(std::ostream & stream) const {
     vector<string> letters;
     stream << "LaTeX code for transition table in NFA/DFA \n \n";
     stream << "\\begin{tabular}{ |c|c|c| } \n"
@@ -442,20 +500,20 @@ void Automaton::tex_transition_table_print(std::ostream & stream) {
     }
     stream << letters.back() << " \\\\ \n \\hline \n";
     int cnt = 0;
-    for(size_t j = 0; j < transition.size(); ++j){
-        const auto& st = transition[j];
-        stream << state[j].get_name() << " & ";
+    for(size_t j = 0; j < transitions.size(); ++j){
+        const auto& st = transitions[j];
+        stream << states[j].get_name() << " & ";
         for(size_t i = 0; i + 1 < letters.size(); ++i){
-            auto tr = st.lower_bound(Transition(letters[i], -1));
-            if(tr->get_expr() == letters[i]){
-                stream << state[tr->get_finish()].get_name() << " & ";
+            auto transition = st.lower_bound(Transition(letters[i], -1));
+            if(transition->get_expr() == letters[i]){
+                stream << states[transition->get_finish()].get_name() << " & ";
             } else {
                 stream << " - & ";
             }
         }
-        auto tr = st.rbegin();
-        if(tr->get_expr() == letters.back()){
-            stream << state[tr->get_finish()].get_name() << " \\\\ \n";
+        auto transition = st.rbegin();
+        if(transition->get_expr() == letters.back()){
+            stream << states[transition->get_finish()].get_name() << " \\\\ \n";
         } else {
             stream << " - \\\\ \n";
         }
@@ -463,45 +521,10 @@ void Automaton::tex_transition_table_print(std::ostream & stream) {
     }
     stream << " \\hline\n \\end{tabular} \n";
 }
-/*
-void Automaton::tex_minimize_transition_table_print(std::ostream & stream) {
-    vector<string> letters;
-    stream << "LaTeX code for transition table in NFA/DFA \n \n";
-    stream << "\\begin{tabular}{ |c|c|c|c| } \n"
-              " \\hline\n";
-    stream << "Verticle & TYPE & ";
-    for(const auto& i : alphabet){
-        letters.push_back(i);
-    }
-    for(size_t i = 0; i + 1 < letters.size(); ++i){
-        stream << letters[i] << " & ";
-    }
-    stream << letters.back() << " \\\\ \n \\hline \n";
-    int cnt = 0;
-    for(size_t j = 0; j < transition.size(); ++j){
-        const auto& st = transition[j];
-        stream << state[j].get_name() << " & " << state[j].get_is_accept() << " & ";
-        for(size_t i = 0; i + 1 < letters.size(); ++i){
-            auto tr = st.lower_bound(Transition(letters[i], -1));
-            if(tr->get_expr() == letters[i]){
-                stream << state[tr->get_finish()].get_is_accept() << " & ";
-            } else {
-                stream << "- & ";
-            }
-        }
-        auto tr = st.rbegin();
-        if(tr->get_expr() == letters.back()){
-            stream << state[tr->get_finish()].get_is_accept() << " \\\\ \n";
-        } else {
-            stream << "- \\\\ \n";
-        }
-        ++cnt;
-    }
-    stream << " \\hline\n \\end{tabular} \n";
-}
-*/
+
+
 void Automaton::minimize(bool print_log, std::ostream& stream) {
-    if(state.size() > MAX_AUTOMATA_SIZE){
+    if(state_number > MAX_AUTOMATA_SIZE){
         throw too_many_states_exception();
     }
     if(is_minimum){
@@ -514,62 +537,62 @@ void Automaton::minimize(bool print_log, std::ostream& stream) {
 
     map<_MinState, int> used;
     vector<int> type_mask(alphabet.size());
-    vector<int> prev_types, curr_types;
+    vector<int> previous_types, current_types;
 
-    for(const auto& st:state){
-        curr_types.push_back(st.get_is_accept());
-        prev_types.push_back(0);
+    for(const auto& st:states){
+        current_types.push_back(st.get_is_accept());
+        previous_types.push_back(0);
         minimizing_log.push_back(st.get_name() + " & " + std::to_string(st.get_is_accept()));
     }
     string format = "|c|c|";
     string header = "vert. & type";
 
-    size_t type_cnt = 1;
-    while(curr_types != prev_types){
-        std::swap(prev_types, curr_types);
+    size_t types_number = 1;
+    while(current_types != previous_types){
+        std::swap(previous_types, current_types);
         for(const auto& letter : alphabet){
             format += "c|";
             header += "& " + letter + " ";
         }
         format += "|c|";
         header += "& type ";
-        for(size_t state_number = 0; state_number < state.size(); ++state_number){
+        for(size_t current_state = 0; current_state < states.size(); ++current_state){
             int cnt = 0;
-            for(const auto& tr: transition[state_number]){
-                type_mask[cnt] = prev_types[tr.get_finish()];
-                minimizing_log[state_number] += "& " + std::to_string(prev_types[tr.get_finish()]) + " ";
+            for(const auto& transition: transitions[current_state]){
+                type_mask[cnt] = previous_types[transition.get_finish()];
+                minimizing_log[current_state] += "& " + std::to_string(previous_types[transition.get_finish()]) + " ";
                 ++cnt;
             }
-            _MinState curr_state_mask(type_mask);
-            if(used[curr_state_mask] == 0){
-                used[curr_state_mask] = type_cnt;
-                ++type_cnt;
+            _MinState current_state_mask(type_mask);
+            if(used[current_state_mask] == 0){
+                used[current_state_mask] = types_number;
+                ++types_number;
             }
-            curr_types[state_number] = used[curr_state_mask];
-            minimizing_log[state_number] += "& " + std::to_string(curr_types[state_number]) + " ";
+            current_types[current_state] = used[current_state_mask];
+            minimizing_log[current_state] += "& " + std::to_string(current_types[current_state]) + " ";
         }
-        for(auto i : curr_types){
-            std::cout << i << ' ';
-        }
-        std::cout << std::endl << std::endl;
         used.clear();
-        type_cnt = 1;
+        types_number = 1;
     }
-    vector<set<Transition>> new_transition;
-    vector<State> new_state;
-    for(size_t i = 0; i < state.size(); ++i){
-        if(curr_types[i] > new_state.size()){
-            new_state.push_back(state[i]);
-            new_transition.emplace_back();
-            for(const auto& tr: transition[i]){
-                new_transition.back().emplace(tr.get_expr(), curr_types[tr.get_finish()] - 1);
+    vector<set<Transition>> old_transitions;
+    vector<State> old_states;
+
+    swap(old_states, states);
+    state_number = 0;
+    swap(old_transitions, transitions);
+    transition_number = 0;
+
+    for(size_t i = 0; i < old_states.size(); ++i){
+        if(current_types[i] > state_number){
+            _add_state(old_states[i].get_name(), old_states[i].get_is_start(), old_states[i].get_is_accept());
+            for(const auto& transition: old_transitions[i]){
+                _add_transition(state_number - 1, current_types[transition.get_finish()] - 1, transition.get_expr());
             }
         } else {
-            new_state[curr_types[i] - 1] += state[i];
+            states[current_types[i] - 1] += old_states[i];
         }
     }
-    state = new_state;
-    transition = new_transition;
+
     if(!print_log){
         return;
     }
@@ -589,7 +612,7 @@ void Automaton::complete() {
     }
     is_complete = true;
     bool complete = true;
-    for(const auto& state_transitions: transition){
+    for(const auto& state_transitions: transitions){
         if(state_transitions.size() != alphabet.size()){
             complete = false;
         }
@@ -598,28 +621,42 @@ void Automaton::complete() {
         return;
     }
 
-    int new_state_number = state.size();
-    state.emplace_back("drain", 0, 0);
-    transition.emplace_back();
-    for(size_t i = 0; i < state.size(); ++i){
+    _add_state("drain", false, false);
+    for(size_t i = 0; i < state_number; ++i){
         for(const auto& letter: alphabet){
             if(!_is_exist_transition_by_letter(i, letter)){
-                _add_transition(i, new_state_number, letter);
+                _add_transition(i, state_number - 1, letter);
             }
         }
     }
 }
 
 bool Automaton::_is_exist_transition_by_letter(const int& start, const string& expr) {
-    const auto& trans = transition[start].lower_bound(Transition(expr, -1));
-    if(trans->get_expr() == expr){
+    const auto& transition = transitions[start].lower_bound(Transition(expr, -1));
+    if(transition->get_expr() == expr){
         return true;
     }
     return false;
 }
 
-void Automaton::_add_transition(const int& start, const int& finish, const string& expr) {
-    transition[start].emplace(expr, finish);
+void Automaton::_add_transition(const size_t& start, const size_t& finish, const string& expr) {
+    size_t change = transitions[start].size();
+    transitions[start].emplace(expr, finish);
+    change -= transitions[start].size();
+    transition_number -= change;
+}
+
+void Automaton::_delete_transition(const size_t& start, const Transition& transition) {
+    size_t change = transitions[start].size();
+    transitions[start].erase(transition);
+    change -= transitions[start].size();
+    transition_number -= change;
+}
+
+void Automaton::_add_state(const string& name, const bool& is_start, const bool& is_accept) {
+    states.emplace_back(name, is_start, is_accept);
+    transitions.emplace_back();
+    ++state_number;
 }
 
 void Automaton::make_one_letter() {
@@ -630,6 +667,16 @@ void Automaton::make_one_letter() {
     _remove_epsilon_transitions();
     is_one_letter = true;
 }
+
+size_t Automaton::get_state_number() {
+    return state_number;
+}
+
+size_t Automaton::get_transition_number() {
+    return transition_number;
+}
+
+
 
 Automaton input_automata(){
     int size, trans_number;
@@ -709,27 +756,34 @@ void test2(){
 
 int main() {
     auto automaton = input_automata();
-    automaton.tex_transition_table_print(std::cout);
-    automaton.tex_graph_print(std::cout);
+    /*automaton.tex_transition_table_print(std::cout);
+    automaton.tex_graph_print(std::cout);*/
+    std::cout << automaton.get_state_number() << ' ' << automaton.get_transition_number() << "\n";
 
-    std::cout << automaton << "\nStep 1\n\n";
+    std::cout /*<< automaton*/ << "\nStep 1\n\n";
     automaton.make_one_letter();
-    automaton.tex_transition_table_print(std::cout);
-    automaton.tex_graph_print(std::cout);
+    /*automaton.tex_transition_table_print(std::cout);
+    automaton.tex_graph_print(std::cout);*/
+    std::cout << automaton.get_state_number() << ' ' << automaton.get_transition_number() << "\n";
 
-    std::cout << automaton << "\nStep 2\n\n";
+    std::cout /*<< automaton*/ << "\nStep 2\n\n";
     automaton.determinize();
-    automaton.tex_transition_table_print(std::cout);
-    automaton.tex_graph_print(std::cout);
+    /*automaton.tex_transition_table_print(std::cout);
+    automaton.tex_graph_print(std::cout);*/
+    std::cout << automaton.get_state_number() << ' ' << automaton.get_transition_number() << "\n";
 
-    std::cout << automaton << "\nStep 3\n\n";
+    std::cout /*<< automaton*/ << "\nStep 3\n\n";
     automaton.complete();
-    automaton.tex_transition_table_print(std::cout);
-    automaton.tex_graph_print(std::cout);
+    /*automaton.tex_transition_table_print(std::cout);
+    automaton.tex_graph_print(std::cout);*/
+    std::cout << automaton.get_state_number() << ' ' << automaton.get_transition_number() << "\n";
 
-    std::cout << automaton << "\nStep 4\n\n";
+    std::cout /*<< automaton*/ << "\nStep 4\n\n";
     automaton.minimize(true);
-    automaton.tex_transition_table_print(std::cout);
-    automaton.tex_graph_print(std::cout);
+    /*automaton.tex_transition_table_print(std::cout);
+    automaton.tex_graph_print(std::cout);*/
+
+    std::cout << automaton.get_state_number() << ' ' << automaton.get_transition_number() << "\n";
+
     std::cout << automaton << std::endl;
 }
