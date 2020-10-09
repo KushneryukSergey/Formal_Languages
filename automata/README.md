@@ -22,8 +22,7 @@ Enjoy
 ## Supported features
  * Input and determinize automata
  * Printing minimization log
- * Printing \LaTeX{} code for tklz library to make automaton graph and table of transitions automaton
-
+ * Printing <img src="https://latex.codecogs.com/gif.latex?\text { \LaTeX{} }" /> code for tklz library to make automaton graph and table of transitions automaton
 
 > #### See future updates!
 
