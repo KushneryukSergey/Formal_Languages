@@ -1,55 +1,26 @@
 cmake_minimum_required(VERSION 3.0)
-project(automata)
+project(Automata)
 
 set(CMAKE_CXX_STANDARD 17)
-add_definitions(-fprofile-arcs -ftest-coverage)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -g -O0 -Wall -fprofile-arcs -ftest-coverage")
-set(CMAKE_CXX_OUTPUT_EXTENSION_REPLACE ON)
+set(EXECUTABLE_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/bin)
 
 find_package(GTest REQUIRED)
 include_directories(${GTEST_INCLUDE_DIRS})
 
-add_executable(automata main/main.cpp)
-add_executable(TESTS tests/tests.cpp)
+add_executable(main main.cpp automata.cpp)
+add_executable(tests tests.cpp automata.cpp)
 
+target_link_libraries(tests gtest gtest_main pthread)
 
-set(OBJECT_DIR ${CMAKE_BINARY_DIR}/CMakeFiles/TESTS.dir)
-
-add_custom_target(gcov
-        COMMAND mkdir -p gcoverage
-        COMMAND ${CMAKE_MAKE_PROGRAM}
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    )
-add_custom_command(TARGET gcov
-        COMMAND echo "=================== GCOV ===================="
-        COMMAND echo "-- Source directory: ${CMAKE_SOURCE_DIR}"
-        COMMAND gcov -b ${CMAKE_SOURCE_DIR}/*.cpp -o ${OBJECT_DIR}
-        COMMAND echo "-- Coverage files have been output to ${CMAKE_BINARY_DIR}/gcoverage"
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/gcoverage
-    )
-add_dependencies(gcov TESTS)
-
-add_custom_target(lcov
-    COMMAND mkdir -p lcoverage
-    )
-add_custom_command(TARGET lcov
-    COMMAND echo "=================== LCOV ===================="
-    COMMAND echo "-- Passing lcov tool under code coverage"
-    COMMAND lcov --capture --directory . --output-file lcoverage/main_coverage.info
-    COMMAND echo "-- Generating HTML output files"
-    COMMAND genhtml lcoverage/main_coverage.info --output-directory lcoverage
-    )
-
-set_property(DIRECTORY APPEND PROPERTY ADDITIONAL_MAKE_CLEAN_FILES gcoverage)
-
-add_custom_target(init
-    COMMAND ${CMAKE_MAKE_PROGRAM} clean
-    COMMAND rm -f ${OBJECT_DIR}/*.gcno
-    COMMAND rm -f ${OBJECT_DIR}/*.gcda
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    )
-
-
-target_link_libraries(TESTS gtest gtest_main pthread)
 enable_testing()
-add_test(NAME TESTS COMMAND TESTS)
+add_test(NAME tests COMMAND tests)
+
+add_custom_target(testing
+        COMMAND echo ${CMAKE_CURRENT_SOURCE_DIR}
+        COMMAND mkdir test_dir && cd test_dir
+        COMMAND g++-7 -std=c++17 --coverage -pthread ../automata.cpp ../tests.cpp -lgtest -lgtest_main -lpthread -o test
+        COMMAND ./test
+        COMMAND lcov -t "test" -o test.info --capture --directory . --gcov-tool /usr/bin/gcov-7
+        COMMAND lcov --remove test.info "/usr/include/*" "/usr/local/*" "*googletest/*" "/usr/include/gtest" "/usr/include/gtest/internal" "/7/*" -o test.info
+        COMMAND genhtml -o coverage_report test.info
+)
