@@ -3,14 +3,16 @@
 //
 
 #include "gtest/gtest.h"
+#include "../automata_lib/automata.h"
 
-TEST(indexTest, testPrimes){
+TEST(Additional, TransitionTest){
     EXPECT_EQ(5, 5);
 }
 
-TEST(libTest, rightGenerating){
-    EXPECT_EQ(10, 10);
+TEST(BuildingTest, Sizes){
+    EXPECT_EQ(5, 5);
 }
+
 
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
