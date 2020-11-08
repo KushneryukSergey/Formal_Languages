@@ -394,7 +394,7 @@ void Automaton::tex_transition_table_print(std::ostream & stream) const {
         const auto& st = transitions[j];
         stream << states[j].get_name() << " & ";
         for (size_t i = 0; i + 1 < letters.size(); ++i) {
-            auto transition = st.lower_bound(Transition(letters[i], -1));
+            auto transition = st.lower_bound(Transition(letters[i], 0));
             if (transition->get_expr() == letters[i]) {
                 stream << states[transition->get_finish()].get_name() << " & ";
             } else {
