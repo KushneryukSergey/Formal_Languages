@@ -1,4 +1,1 @@
-all sufficient errors fixed (non-fixed are explained in pull request)
-README updated
-tests and test coverage added
-CMakeLists updated
+workshop initiated
