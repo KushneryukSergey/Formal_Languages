@@ -1,1 +1,3 @@
-some tests with repo
+workshop done (without desription)
+tests added
+coverage is acceptable
