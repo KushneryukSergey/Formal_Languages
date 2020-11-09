@@ -1,0 +1,6 @@
+/home/skushneryuk/study/formal_languages/workshop1/build/CMakeFiles/rebuild_cache.dir
+/home/skushneryuk/study/formal_languages/workshop1/build/CMakeFiles/edit_cache.dir
+/home/skushneryuk/study/formal_languages/workshop1/build/CMakeFiles/test.dir
+/home/skushneryuk/study/formal_languages/workshop1/build/CMakeFiles/testing.dir
+/home/skushneryuk/study/formal_languages/workshop1/build/CMakeFiles/tests.dir
+/home/skushneryuk/study/formal_languages/workshop1/build/CMakeFiles/main.dir

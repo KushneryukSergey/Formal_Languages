@@ -1,0 +1,36 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/skushneryuk/study/formal_languages/workshop1/automata.cpp
+automata.h
+/home/skushneryuk/study/formal_languages/workshop1/automata.h
+
+/home/skushneryuk/study/formal_languages/workshop1/automata.h
+iostream
+-
+utility
+-
+vector
+-
+algorithm
+-
+string
+-
+set
+-
+queue
+-
+stack
+-
+exception
+-
+
+/home/skushneryuk/study/formal_languages/workshop1/main.cpp
+automata.h
+/home/skushneryuk/study/formal_languages/workshop1/automata.h
+

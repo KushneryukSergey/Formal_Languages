@@ -1,0 +1,1 @@
+/usr/bin/c++    -rdynamic CMakeFiles/tests.dir/tests.cpp.o CMakeFiles/tests.dir/automata.cpp.o  -o ../bin/tests  -lgtest -lgtest_main -lpthread 
