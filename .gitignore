@@ -30,3 +30,11 @@
 *.exe
 *.out
 *.app
+
+# My
+message.txt
+*/.idea
+*/cmake-build-debug
+pdfs/*
+workshop1/*
+automata/*
