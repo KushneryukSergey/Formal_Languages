@@ -4,6 +4,7 @@ context-free language (hereinafter CFL), which is specified by
 context-free grammar (hereinafter CFG), which means, by its rules
 
 ####[CFL on Wikipedia](https://en.wikipedia.org/wiki/Context-free_language)
+####[Earley's algorithm on Wikipedia](https://en.wikipedia.org/wiki/Earley_parser)
 
 ## How to run:
 1. Clone this repo
