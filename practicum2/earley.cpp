@@ -30,17 +30,24 @@ EarleySituation EarleySituation::next() {
     return EarleySituation{rule_number, point_pos + 1, prev_pos};
 }
 
+bool EarleySituation::operator==(const EarleySituation& other) const {
+    return rule_number == other.rule_number &&
+           point_pos == other.point_pos &&
+           prev_pos == other.prev_pos;
+}
+
 
 EarleySolver::EarleySolver(const char& start,
-                           const vector<ContextFreeGrammarRule>& rules):
+                           const vector<ContextFreeGrammarRule>& rules) :
         _start(start), _rules(rules) {
-    for(const auto& rule: rules) {
+    for (const auto& rule: rules) {
         _non_terminals.insert(rule.non_terminal);
     }
     for (const auto& rule: rules) {
         for (auto alpha: rule.expression) {
-            if (!_is_non_terminal(alpha))
+            if (!_is_non_terminal(alpha)) {
                 _alphabet.insert(alpha);
+            }
         }
     }
     ContextFreeGrammarRule new_rule{spec_symbol, string(1, _start)};
@@ -58,9 +65,10 @@ EarleySolver::EarleySolver(const char& start,
 
 
 void EarleySolver::_scan(const size_t& pos, char symbol) {
-    for (auto situation: _d[pos]) {
-        if (_is_complete_possible(situation))
+    for (auto situation: _layers[pos]) {
+        if (_is_complete_possible(situation)) {
             continue;
+        }
         if (_next_symbol(situation) == symbol) {
             _add_situation(pos + 1, situation.next());
         }
@@ -78,7 +86,7 @@ void EarleySolver::_predict(const size_t& pos) {
             int it = _first_rule[symbol];
             if (it != -1) {
                 while (it != _rules.size() && _rules[it].non_terminal == symbol) {
-                    EarleySituation new_situation{(size_t)(it++), 0, pos};
+                    EarleySituation new_situation{(size_t) (it++), 0, pos};
                     _add_situation(pos, new_situation);
                 }
             }
@@ -97,7 +105,7 @@ void EarleySolver::_complete(const size_t& pos) {
         }
         
         char symbol = _rules[situation.rule_number].non_terminal;
-        for (auto prev_situation: _d[situation.prev_pos]) {
+        for (auto prev_situation: _layers[situation.prev_pos]) {
             if (_next_symbol(prev_situation) == symbol) {
                 _add_situation(pos, prev_situation.next());
             }
@@ -108,23 +116,27 @@ void EarleySolver::_complete(const size_t& pos) {
 
 bool EarleySolver::check_word(const string& word) {
     for (auto symbol: word) {
-        if (_is_non_terminal(symbol))
+        if (_is_non_terminal(symbol)) {
             throw non_terminals_in_word_exception();
-        if (_alphabet.find(symbol) == _alphabet.end())
+        }
+        if (_alphabet.find(symbol) == _alphabet.end()) {
             throw non_alphabet_symbol_exception();
+        }
     }
-    while(!_current.empty())
+    while (!_current.empty()) {
         _current.pop();
-    while (!_next.empty())
+    }
+    while (!_next.empty()) {
         _next.pop();
-    _d.clear();
+    }
+    _layers.clear();
     
-    EarleySituation start_state{(size_t)_first_rule[spec_symbol],
+    EarleySituation start_state{(size_t) _first_rule[spec_symbol],
                                 0,
                                 0};
     _current.push(start_state);
-    _d.resize(word.size() + 1);
-    _d[0].insert(start_state);
+    _layers.resize(word.size() + 1);
+    _layers[0].insert(start_state);
     
     while (!_current.empty()) {
         _predict(0);
@@ -132,7 +144,7 @@ bool EarleySolver::check_word(const string& word) {
         swap(_current, _next);
     }
     
-    for (int i = 1; i < _d.size(); ++i) {
+    for (int i = 1; i < _layers.size(); ++i) {
         _scan(i - 1, word[i - 1]);
         swap(_current, _next);
         while (!_current.empty()) {
@@ -141,7 +153,7 @@ bool EarleySolver::check_word(const string& word) {
             swap(_current, _next);
         }
     }
-    if (_d[word.size()].find(start_state.next()) != _d[word.size()].end()) {
+    if (_layers[word.size()].find(start_state.next()) != _layers[word.size()].end()) {
         return true;
     }
     return false;
@@ -160,8 +172,8 @@ bool EarleySolver::_is_non_terminal(const char& symbol) {
 }
 
 void EarleySolver::_add_situation(const size_t& pos, const EarleySituation& situation) {
-    if (_d[pos].find(situation) == _d[pos].end()) {
+    if (_layers[pos].find(situation) == _layers[pos].end()) {
         _next.push(situation);
-        _d[pos].insert(situation);
+        _layers[pos].insert(situation);
     }
 }

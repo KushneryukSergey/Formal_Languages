@@ -114,6 +114,50 @@ TEST(EarleyTesting, BBS) { // Balanced bracket sequence
 }
 
 
+TEST(EarleyTesting, SubmodulesCorrectness) {
+    vector<ContextFreeGrammarRule> rules = {
+            ContextFreeGrammarRule{'S', "aSbS"},
+            ContextFreeGrammarRule{'S', "bSaS"},
+            ContextFreeGrammarRule{'S', ""}
+    };
+    EarleySolver solver('S', rules);
+    
+    solver._layers.resize(4);
+    solver._layers[2] = {EarleySituation{2, 1, 1},  // S->aSbS is third after sorting
+                         EarleySituation{3, 3, 1},  // S->bSaS is forth after sorting
+                         EarleySituation{2, 2, 1}};
+    
+    solver._scan(2, 'b');  // can read b from the third situation (S->aS.bS, 1)
+    EXPECT_EQ(solver._next.size(), 1);
+    EXPECT_EQ(solver._next.front(), (EarleySituation{2, 3, 1}));
+    
+    swap(solver._next, solver._current);
+    
+    solver._predict(3);  // there is (S->aSb.S, 2) situation,
+                         // so all existing rules should be added
+    EXPECT_EQ(solver._next.size(), 3);
+    EXPECT_EQ(solver._next.front(), (EarleySituation{1, 0, 3}));
+    
+    // adding some situations to check whether all possible completes
+    // are made (by S -> ., 2) situation
+    solver._current.push(EarleySituation{1, 0, 2});  // should be made
+    solver._current.push(EarleySituation{3, 4, 2});  // should be made
+    solver._current.push(EarleySituation{1, 0, 1});  // cannot be made
+                                                                                     // (no elements in _layer[1])
+    solver._current.push(EarleySituation{2, 2, 2});  // cannot be made
+                                                                                     // (last symbol is terminal)
+    
+    
+    solver._complete(3);  // check if all situations added
+    EXPECT_EQ(solver._next.size(), 5);
+    EXPECT_EQ(solver._next.back(), (EarleySituation{3, 4, 1}));
+    
+    // check if _layer[3] size is correct (new situations not included because
+    // they should be "predicted" and "completed" as mush as possible before it
+    EXPECT_EQ(solver._layers[3].size(), 6);
+}
+
+
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();

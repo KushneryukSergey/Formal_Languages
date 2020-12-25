@@ -22,6 +22,9 @@ add_custom_target(testing
         COMMAND g++-7 -std=c++${CMAKE_CXX_STANDARD} --coverage -pthread ../earley.cpp ../tests.cpp ${GTEST_LIBRARIES} -o test
         COMMAND ./test
         COMMAND lcov -t "test" -o test.info --capture --directory . --gcov-tool /usr/bin/gcov-7
-        COMMAND lcov --remove test.info "/usr/include/*" "/usr/local/*" "*googletest/*" "/usr/include/gtest" "/usr/include/gtest/internal" "/7/*" -o test.info
+        COMMAND lcov --remove test.info "/usr/include/*"
+                "/usr/local/*" "*googletest/*" "/usr/include/gtest/"
+                "*/gtest/*" "/usr/include/c++/7/*"
+                "/usr/include/c++/7/*" "*/bits/*" "*/ext/*" -o test.info
         COMMAND genhtml -o coverage_report test.info
         )

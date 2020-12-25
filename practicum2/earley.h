@@ -12,6 +12,7 @@
 #include <queue>
 #include <map>
 #include <exception>
+#include <gtest/gtest.h>
 
 using std::string;
 using std::vector;
@@ -52,20 +53,21 @@ struct EarleySituation {
     size_t prev_pos;
     
     bool operator<(const EarleySituation&) const;
+    bool operator==(const EarleySituation&) const;
     
     EarleySituation next();
 };
 
 
 class EarleySolver {
+public:
     char _start;
     vector <ContextFreeGrammarRule> _rules;
     set<char> _non_terminals;
     set<char> _alphabet;
-    vector <set<EarleySituation>> _d;
+    vector <set<EarleySituation>> _layers;
     map<char, int> _first_rule;
     queue <EarleySituation> _current, _next;
-    
     void _predict(const size_t&);
     void _complete(const size_t&);
     void _scan(const size_t&, char);
@@ -75,6 +77,9 @@ class EarleySolver {
     
     char _next_symbol(const EarleySituation&);
     void _add_situation(const size_t&, const EarleySituation&);
+    
+    // Testing module
+    FRIEND_TEST(EarleyTesting, SubmodulesCorrectness);
     
 public:
     EarleySolver(const char&, const vector<ContextFreeGrammarRule>&);

@@ -24,7 +24,7 @@ void input_rules(vector<ContextFreeGrammarRule>& rules) {
     }
 }
 
-int main() {
+void solve_one_problem() {
     vector<ContextFreeGrammarRule> rules;
     input_rules(rules);
     char S;
@@ -48,5 +48,9 @@ int main() {
             cout << "Exception: " << exc.what();
         }
     }
+}
+
+int main() {
+    solve_one_problem();
     return 0;
 }
